@@ -1,0 +1,22 @@
+# Local tools and binary wrappers
+.tools/
+
+# Backend Spring Boot ignores
+backend/target/
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# Frontend Angular ignores
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.vscode/
+
+# IDE files
+.vscode/
+*.suo
+*.ntvsca
+*.njsproj
+*.sln
+*.sw?

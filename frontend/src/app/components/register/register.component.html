@@ -1,0 +1,146 @@
+<div class="register-container">
+  <div class="background-decor">
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+  </div>
+
+  <div class="register-card glass">
+    <div class="card-header">
+      <div class="logo">
+        <span class="logo-icon">✨</span>
+        <span class="logo-text">PlenaMente</span>
+      </div>
+      <h2>Criar Nova Conta</h2>
+      <p>Cadastre-se na clínica e gerencie seus agendamentos.</p>
+    </div>
+
+    <!-- Alert de Sucesso -->
+    <div *ngIf="sucesso" class="alert alert-success">
+      <span class="alert-icon">✓</span>
+      <span class="alert-message">Cadastro realizado com sucesso! Redirecionando...</span>
+    </div>
+
+    <!-- Alert de Erro -->
+    <div *ngIf="erro" class="alert alert-danger">
+      <span class="alert-icon">⚠️</span>
+      <span class="alert-message">{{ erro }}</span>
+    </div>
+
+    <form *ngIf="!sucesso" (ngSubmit)="onSubmit()" #registerForm="ngForm">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="nome">Nome Completo</label>
+          <input 
+            type="text" 
+            id="nome" 
+            name="nome" 
+            [(ngModel)]="nome" 
+            placeholder="Nome completo" 
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            [(ngModel)]="email" 
+            placeholder="exemplo@email.com" 
+            required
+            autocomplete="email"
+          />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <input 
+            type="password" 
+            id="password" 
+            name="senha" 
+            [(ngModel)]="senha" 
+            placeholder="Mínimo 6 caracteres" 
+            required
+            autocomplete="new-password"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Confirmar Senha</label>
+          <input 
+            type="password" 
+            id="confirmPassword" 
+            name="confirmarSenha" 
+            [(ngModel)]="confirmarSenha" 
+            placeholder="Repita a senha" 
+            required
+            autocomplete="new-password"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="role">Tipo de Conta</label>
+        <select id="role" name="role" [(ngModel)]="role">
+          <option value="PACIENTE">Paciente</option>
+          <option value="PSICOLOGO">Psicólogo(a)</option>
+          <option value="RECEPCAO">Recepção / Atendente</option>
+          <option value="SUPERVISAO">Supervisão / Administrador</option>
+        </select>
+      </div>
+
+      <!-- Campo específico para PACIENTE -->
+      <div *ngIf="role === 'PACIENTE'" class="form-group slide-in">
+        <label for="telefone">Telefone / WhatsApp</label>
+        <input 
+          type="text" 
+          id="telefone" 
+          name="telefone" 
+          [(ngModel)]="telefone" 
+          placeholder="(XX) XXXXX-XXXX" 
+          required
+        />
+      </div>
+
+      <!-- Campos específicos para PSICOLOGO -->
+      <div *ngIf="role === 'PSICOLOGO'" class="form-row slide-in">
+        <div class="form-group">
+          <label for="especialidade">Especialidade</label>
+          <input 
+            type="text" 
+            id="especialidade" 
+            name="especialidade" 
+            [(ngModel)]="especialidade" 
+            placeholder="Ex: TCC, Psicanálise" 
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="registro">Registro Profissional (CRP)</label>
+          <input 
+            type="text" 
+            id="registro" 
+            name="registroProfissional" 
+            [(ngModel)]="registroProfissional" 
+            placeholder="Ex: CRP-06/12345" 
+            required
+          />
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary w-full" [disabled]="carregando">
+        <span *ngIf="!carregando">Cadastrar</span>
+        <span *ngIf="carregando" class="spinner"></span>
+        <span *ngIf="carregando">Criando conta...</span>
+      </button>
+    </form>
+
+    <div class="card-footer">
+      <p>Já tem uma conta? <a routerLink="/login">Faça Login</a></p>
+    </div>
+  </div>
+</div>

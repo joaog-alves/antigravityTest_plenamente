@@ -1,0 +1,547 @@
+<div class="dashboard-container">
+  <!-- Navbar Superior -->
+  <header class="navbar glass">
+    <div class="nav-brand">
+      <span class="logo-icon">✨</span>
+      <span class="logo-text">PlenaMente</span>
+    </div>
+    
+    <div class="nav-user" *ngIf="currentUser">
+      <div class="user-info">
+        <span class="user-name">{{ currentUser.nome }}</span>
+        <span class="badge" [ngClass]="currentUser.role.toLowerCase()">
+          {{ currentUser.role === 'RECEPCAO' ? 'Recepção' : currentUser.role === 'SUPERVISAO' ? 'Supervisão' : currentUser.role === 'PSICOLOGO' ? 'Psicólogo' : 'Paciente' }}
+        </span>
+      </div>
+      <button class="btn-logout" (click)="logout()">
+        <span>Sair</span>
+        <span class="logout-icon">🚪</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="dashboard-main animate-fadeIn">
+    <!-- Mensagens de Alerta -->
+    <div *ngIf="sucessoMsg" class="alert alert-success">
+      <span class="alert-icon">✓</span>
+      <span>{{ sucessoMsg }}</span>
+    </div>
+    <div *ngIf="erroMsg" class="alert alert-danger">
+      <span class="alert-icon">⚠️</span>
+      <span>{{ erroMsg }}</span>
+    </div>
+
+    <!-- Spinner Geral -->
+    <div *ngIf="carregando && consultas.length === 0 && usuarios.length === 0" class="loading-state">
+      <span class="spinner"></span>
+      <p>Carregando painel de controle...</p>
+    </div>
+
+    <!-- PAINEL DO PACIENTE -->
+    <section *ngIf="currentUser?.role === 'PACIENTE'" class="dashboard-section">
+      <div class="grid-layout">
+        <!-- Form de Agendamento -->
+        <div class="card glass">
+          <div class="card-header">
+            <h3>Agendar Nova Consulta</h3>
+            <p>Selecione um profissional e o horário de sua preferência.</p>
+          </div>
+          
+          <form (ngSubmit)="agendarConsulta()" class="agendar-form">
+            <div class="form-group">
+              <label for="psicologo">Psicólogo(a)</label>
+              <select id="psicologo" name="psicologoId" [(ngModel)]="agendamento.psicologoId" required>
+                <option value="0" disabled selected>Selecione um psicólogo</option>
+                <option *ngFor="let p of psicologos" [value]="p.id">
+                  {{ p.nome }} ({{ p.especialidade || 'Clínica Geral' }})
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dataHora">Data & Hora</label>
+              <input 
+                type="datetime-local" 
+                id="dataHora" 
+                name="dataHora" 
+                [(ngModel)]="agendamento.dataHora" 
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="observacoes">Queixas / Observações</label>
+              <textarea 
+                id="observacoes" 
+                name="observacoes" 
+                [(ngModel)]="agendamento.observacoes" 
+                placeholder="Fale brevemente sobre o motivo da consulta (opcional)..."
+                rows="3"
+              ></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary w-full">Agendar Consulta</button>
+          </form>
+        </div>
+
+        <!-- Lista de Consultas -->
+        <div class="card glass col-span-2">
+          <div class="card-header">
+            <h3>Minhas Consultas</h3>
+            <p>Confira seu histórico e status de agendamentos.</p>
+          </div>
+
+          <div class="table-container">
+            <table *ngIf="consultas.length > 0; else noConsultas">
+              <thead>
+                <tr>
+                  <th>Data e Hora</th>
+                  <th>Psicólogo(a)</th>
+                  <th>Status</th>
+                  <th>Ações / Histórico</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of consultas">
+                  <td>{{ formatarData(c.dataHora) }}</td>
+                  <td>{{ c.psicologo.nome }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="c.status.toLowerCase()">
+                      {{ traduzirStatus(c.status) }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <!-- Ver diagnóstico se realizada -->
+                      <button 
+                        *ngIf="c.status === 'REALIZADA'" 
+                        class="btn-success btn-xs" 
+                        (click)="verProntuario(c)"
+                      >
+                        👁️ Ver Receita / Notas
+                      </button>
+                      <!-- Cancelar se agendada/confirmada -->
+                      <button 
+                        *ngIf="c.status === 'AGENDADA' || c.status === 'CONFIRMADA'" 
+                        class="btn-danger btn-xs" 
+                        (click)="alterarStatus(c.id, 'CANCELADA')"
+                      >
+                        Cancelar
+                      </button>
+                      <span *ngIf="c.status === 'CANCELADA'" class="text-muted text-xs">Sem ações</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #noConsultas>
+              <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <p>Você ainda não possui consultas agendadas.</p>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAINEL DO PSICÓLOGO -->
+    <section *ngIf="currentUser?.role === 'PSICOLOGO'" class="dashboard-section">
+      <div class="card glass">
+        <div class="card-header">
+          <h3>Minha Agenda Profissional</h3>
+          <p>Gerencie os atendimentos de seus pacientes.</p>
+        </div>
+
+        <div class="table-container">
+          <table *ngIf="consultas.length > 0; else noConsultasPsicologo">
+            <thead>
+              <tr>
+                <th>Data e Hora</th>
+                <th>Paciente</th>
+                <th>Status</th>
+                <th>Observações</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of consultas">
+                <td>{{ formatarData(c.dataHora) }}</td>
+                <td>
+                  <div class="paciente-detail">
+                    <strong>{{ c.paciente.nome }}</strong>
+                    <span class="text-xs text-muted" *ngIf="c.paciente.telefone">📞 {{ c.paciente.telefone }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="status-badge" [ngClass]="c.status.toLowerCase()">
+                    {{ traduzirStatus(c.status) }}
+                  </span>
+                </td>
+                <td class="text-truncate" [title]="c.observacoes || ''">
+                  {{ c.observacoes || 'Nenhuma observação informada.' }}
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <!-- Confirmar -->
+                    <button 
+                      *ngIf="c.status === 'AGENDADA'" 
+                      class="btn-success btn-xs" 
+                      (click)="alterarStatus(c.id, 'CONFIRMADA')"
+                    >
+                      Confirmar
+                    </button>
+                    <!-- Prontuário / Finalizar -->
+                    <button 
+                      *ngIf="c.status === 'CONFIRMADA' || c.status === 'AGENDADA'" 
+                      class="btn-primary btn-xs" 
+                      (click)="abrirModalProntuario(c)"
+                    >
+                      📝 Prontuário & Concluir
+                    </button>
+                    <!-- Ver Prontuário já preenchido -->
+                    <button 
+                      *ngIf="c.status === 'REALIZADA'" 
+                      class="btn-secondary btn-xs" 
+                      (click)="verProntuario(c)"
+                    >
+                      👁️ Ver Notas
+                    </button>
+                    <!-- Cancelar -->
+                    <button 
+                      *ngIf="c.status === 'AGENDADA' || c.status === 'CONFIRMADA'" 
+                      class="btn-danger btn-xs" 
+                      (click)="alterarStatus(c.id, 'CANCELADA')"
+                    >
+                      Cancelar
+                    </button>
+                    <span *ngIf="c.status === 'CANCELADA'" class="text-muted text-xs">Sem ações</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noConsultasPsicologo>
+            <div class="empty-state">
+              <span class="empty-icon">📂</span>
+              <p>Nenhuma consulta encontrada na sua agenda.</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAINEL DA RECEPÇÃO -->
+    <section *ngIf="currentUser?.role === 'RECEPCAO'" class="dashboard-section">
+      <div class="grid-layout">
+        <!-- Agendamento Universal (Recepção) -->
+        <div class="card glass">
+          <div class="card-header">
+            <h3>Agendamento Administrativo</h3>
+            <p>Cadastre consultas para qualquer paciente e psicólogo.</p>
+          </div>
+
+          <form (ngSubmit)="agendarConsulta()" class="agendar-form">
+            <div class="form-group">
+              <label for="rec-paciente">Paciente</label>
+              <select id="rec-paciente" name="pacienteId" [(ngModel)]="agendamento.pacienteId" required>
+                <option value="0" disabled selected>Selecione um paciente</option>
+                <option *ngFor="let pa of pacientes" [value]="pa.id">
+                  {{ pa.nome }} ({{ pa.email }})
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="rec-psicologo">Psicólogo(a)</label>
+              <select id="rec-psicologo" name="psicologoId" [(ngModel)]="agendamento.psicologoId" required>
+                <option value="0" disabled selected>Selecione um psicólogo</option>
+                <option *ngFor="let ps of psicologos" [value]="ps.id">
+                  {{ ps.nome }} ({{ ps.especialidade || 'Clínica Geral' }})
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="rec-dataHora">Data & Hora</label>
+              <input 
+                type="datetime-local" 
+                id="rec-dataHora" 
+                name="dataHora" 
+                [(ngModel)]="agendamento.dataHora" 
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="rec-observacoes">Motivo / Notas da Recepção</label>
+              <textarea 
+                id="rec-observacoes" 
+                name="observacoes" 
+                [(ngModel)]="agendamento.observacoes" 
+                placeholder="Observações administrativas..."
+                rows="2"
+              ></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary w-full">Criar Agendamento</button>
+          </form>
+        </div>
+
+        <!-- Monitor de Todas as Consultas -->
+        <div class="card glass col-span-2">
+          <div class="card-header">
+            <h3>Monitor de Consultas</h3>
+            <p>Gerencie e confirme os agendamentos gerais da clínica.</p>
+          </div>
+
+          <div class="table-container">
+            <table *ngIf="consultas.length > 0; else noConsultasRecepcao">
+              <thead>
+                <tr>
+                  <th>Data e Hora</th>
+                  <th>Paciente</th>
+                  <th>Psicólogo(a)</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of consultas">
+                  <td>{{ formatarData(c.dataHora) }}</td>
+                  <td>
+                    <div class="paciente-detail">
+                      <strong>{{ c.paciente.nome }}</strong>
+                      <span class="text-xs text-muted" *ngIf="c.paciente.telefone">📞 {{ c.paciente.telefone }}</span>
+                    </div>
+                  </td>
+                  <td>{{ c.psicologo.nome }}</td>
+                  <td>
+                    <span class="status-badge" [ngClass]="c.status.toLowerCase()">
+                      {{ traduzirStatus(c.status) }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="action-buttons">
+                      <!-- Confirmar -->
+                      <button 
+                        *ngIf="c.status === 'AGENDADA'" 
+                        class="btn-success btn-xs" 
+                        (click)="alterarStatus(c.id, 'CONFIRMADA')"
+                      >
+                        Confirmar
+                      </button>
+                      <!-- Cancelar -->
+                      <button 
+                        *ngIf="c.status === 'AGENDADA' || c.status === 'CONFIRMADA'" 
+                        class="btn-danger btn-xs" 
+                        (click)="alterarStatus(c.id, 'CANCELADA')"
+                      >
+                        Cancelar
+                      </button>
+                      <span *ngIf="c.status === 'REALIZADA'" class="text-success text-xs">Realizada</span>
+                      <span *ngIf="c.status === 'CANCELADA'" class="text-muted text-xs">Cancelada</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #noConsultasRecepcao>
+              <div class="empty-state">
+                <span class="empty-icon">📅</span>
+                <p>Nenhuma consulta cadastrada no sistema.</p>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAINEL DA SUPERVISÃO -->
+    <section *ngIf="currentUser?.role === 'SUPERVISAO'" class="dashboard-section">
+      <!-- Cards de Métricas -->
+      <div class="metrics-grid">
+        <div class="metric-card glass border-cyan">
+          <span class="metric-icon text-cyan">📅</span>
+          <div class="metric-info">
+            <h4>Total Consultas</h4>
+            <h3>{{ metricas.totalConsultas }}</h3>
+          </div>
+        </div>
+
+        <div class="metric-card glass border-blue">
+          <span class="metric-icon text-blue">⏳</span>
+          <div class="metric-info">
+            <h4>Agendadas/Confirmadas</h4>
+            <h3>{{ metricas.agendadas }}</h3>
+          </div>
+        </div>
+
+        <div class="metric-card glass border-emerald">
+          <span class="metric-icon text-emerald">✓</span>
+          <div class="metric-info">
+            <h4>Realizadas</h4>
+            <h3>{{ metricas.realizadas }}</h3>
+          </div>
+        </div>
+
+        <div class="metric-card glass border-red">
+          <span class="metric-icon text-red">❌</span>
+          <div class="metric-info">
+            <h4>Canceladas</h4>
+            <h3>{{ metricas.canceladas }}</h3>
+          </div>
+        </div>
+
+        <div class="metric-card glass">
+          <span class="metric-icon">👤</span>
+          <div class="metric-info">
+            <h4>Total Pacientes</h4>
+            <h3>{{ metricas.totalPacientes }}</h3>
+          </div>
+        </div>
+
+        <div class="metric-card glass">
+          <span class="metric-icon">🧑‍⚕️</span>
+          <div class="metric-info">
+            <h4>Total Psicólogos</h4>
+            <h3>{{ metricas.totalPsicologos }}</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela de Gerenciamento de Usuários -->
+      <div class="card glass margin-top-lg">
+        <div class="card-header">
+          <h3>Gerenciamento de Usuários do Sistema</h3>
+          <p>Visualize as contas cadastradas e remova contas se necessário.</p>
+        </div>
+
+        <div class="table-container">
+          <table *ngIf="usuarios.length > 0; else noUsuarios">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Papel</th>
+                <th>Detalhes Específicos</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let u of usuarios">
+                <td>#{{ u.id }}</td>
+                <td><strong>{{ u.nome }}</strong></td>
+                <td>{{ u.email }}</td>
+                <td>
+                  <span class="status-badge" [ngClass]="u.role.toLowerCase()">
+                    {{ u.role === 'RECEPCAO' ? 'Recepção' : u.role === 'SUPERVISAO' ? 'Supervisão' : u.role === 'PSICOLOGO' ? 'Psicólogo' : 'Paciente' }}
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="u.role === 'PACIENTE' && u.telefone">📞 {{ u.telefone }}</span>
+                  <span *ngIf="u.role === 'PSICOLOGO'">
+                    💼 {{ u.especialidade || 'Geral' }} | CRP: {{ u.registroProfissional || 'N/D' }}
+                  </span>
+                  <span *ngIf="u.role !== 'PACIENTE' && u.role !== 'PSICOLOGO'" class="text-muted text-xs">N/A</span>
+                </td>
+                <td>
+                  <!-- Não permite excluir a si próprio -->
+                  <button 
+                    *ngIf="u.id !== currentUser?.id" 
+                    class="btn-danger btn-xs" 
+                    (click)="deletarUsuario(u.id)"
+                  >
+                    Excluir Usuário
+                  </button>
+                  <span *ngIf="u.id === currentUser?.id" class="text-xs text-muted font-bold">Você (Sessão Ativa)</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noUsuarios>
+            <div class="empty-state">
+              <span class="empty-icon">👥</span>
+              <p>Nenhum usuário cadastrado no sistema.</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: REGISTRAR PRONTUÁRIO E LAUDO (PSICÓLOGO) -->
+  <div class="modal-backdrop" *ngIf="modalProntuario.aberto">
+    <div class="modal-content glass animate-slideIn">
+      <div class="modal-header">
+        <h3>Registrar Prontuário e Notas de Sessão</h3>
+        <button class="btn-close" (click)="fecharModalProntuario()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <p class="margin-bottom-md"><strong>Paciente:</strong> {{ modalProntuario.pacienteNome }}</p>
+        
+        <div class="form-group">
+          <label for="diagnostico">Diagnóstico / Laudo Clínico</label>
+          <input 
+            type="text" 
+            id="diagnostico" 
+            [(ngModel)]="modalProntuario.diagnostico" 
+            placeholder="Ex: F41.1 - Ansiedade Generalizada"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="notas">Notas de Evolução / Observações da Sessão</label>
+          <textarea 
+            id="notas" 
+            [(ngModel)]="modalProntuario.observacoes" 
+            placeholder="Descreva a evolução do paciente nesta sessão..."
+            rows="6"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="fecharModalProntuario()">Cancelar</button>
+        <button class="btn-primary" (click)="salvarProntuario()">Concluir Atendimento e Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: VISUALIZAR PRONTUÁRIO (PACIENTE / HISTÓRICO) -->
+  <div class="modal-backdrop" *ngIf="modalVerProntuario.aberto">
+    <div class="modal-content glass animate-slideIn">
+      <div class="modal-header">
+        <h3>Notas e Diagnóstico da Consulta</h3>
+        <button class="btn-close" (click)="fecharVerProntuario()">✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="prontuario-meta margin-bottom-md">
+          <p><strong>Profissional:</strong> {{ modalVerProntuario.psicologoNome }}</p>
+          <p><strong>Data:</strong> {{ formatarData(modalVerProntuario.dataHora) }}</p>
+        </div>
+        
+        <div class="prontuario-block margin-bottom-md">
+          <h4>Diagnóstico Clínico</h4>
+          <div class="prontuario-text">
+            {{ modalVerProntuario.diagnostico }}
+          </div>
+        </div>
+
+        <div class="prontuario-block">
+          <h4>Observações e Evolução</h4>
+          <div class="prontuario-text">
+            {{ modalVerProntuario.observacoes }}
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" (click)="fecharVerProntuario()">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>

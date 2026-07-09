@@ -1,0 +1,101 @@
+<div class="login-container">
+  <div class="background-decor">
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+  </div>
+
+  <div class="login-card glass">
+    <div class="card-header">
+      <div class="logo">
+        <span class="logo-icon">✨</span>
+        <span class="logo-text">PlenaMente</span>
+      </div>
+      <h2>Bem-vindo de volta</h2>
+      <p>Gerencie suas consultas de psicologia com facilidade.</p>
+    </div>
+
+    <!-- Instruções de Acesso -->
+    <details class="instructions-details margin-bottom-md">
+      <summary class="instructions-summary">
+        <span>📖 Passo a passo para acessar e testar o site</span>
+      </summary>
+      <div class="instructions-content">
+        <ol>
+          <li>O <strong>servidor backend</strong> (Spring Boot) está ativo localmente em <a href="http://localhost:8080" target="_blank">http://localhost:8080</a>.</li>
+          <li>O <strong>banco de dados H2</strong> (em memória) foi semeado com usuários padrão para testes.</li>
+          <li>Clique em qualquer perfil na seção de <strong>Acesso Rápido</strong> no rodapé para preencher os dados de login instantaneamente.</li>
+          <li>Se deseja inspecionar as tabelas no banco de dados, acesse <a href="http://localhost:8080/h2-console" target="_blank">http://localhost:8080/h2-console</a> (use <code>jdbc:h2:mem:plenamentedb</code> e deixe a senha em branco).</li>
+        </ol>
+      </div>
+    </details>
+
+    <!-- Alert de Erro -->
+    <div *ngIf="erro" class="alert alert-danger">
+      <span class="alert-icon">⚠️</span>
+      <span class="alert-message">{{ erro }}</span>
+    </div>
+
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <div class="input-wrapper">
+          <span class="input-icon">✉️</span>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            [(ngModel)]="email" 
+            placeholder="Digite seu e-mail" 
+            required
+            autocomplete="email"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Senha</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input 
+            type="password" 
+            id="password" 
+            name="senha" 
+            [(ngModel)]="senha" 
+            placeholder="Digite sua senha" 
+            required
+            autocomplete="current-password"
+          />
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary w-full" [disabled]="carregando">
+        <span *ngIf="!carregando">Entrar</span>
+        <span *ngIf="carregando" class="spinner"></span>
+        <span *ngIf="carregando">Autenticando...</span>
+      </button>
+    </form>
+
+    <div class="card-footer">
+      <p>Não tem uma conta? <a routerLink="/register">Cadastre-se aqui</a></p>
+    </div>
+
+    <!-- Seção de Acesso Rápido para Testes -->
+    <div class="test-accounts">
+      <div class="test-header">
+        <span>⚡ Acesso Rápido (Ambiente de Testes)</span>
+      </div>
+      <div class="test-grid">
+        <button 
+          *ngFor="let u of seedUsers" 
+          type="button" 
+          class="test-btn" 
+          (click)="preencherTeste(u)"
+          title="Clique para preencher"
+        >
+          <span class="badge" [ngClass]="u.role.toLowerCase()">{{ u.role }}</span>
+          <span class="label">{{ u.label }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
